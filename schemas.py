@@ -1,48 +1,79 @@
 """
-Database Schemas
+Database Schemas for the Unified Product Lifecycle & Service Management Platform
 
-Define your MongoDB collection schemas here using Pydantic models.
-These schemas are used for data validation in your application.
+Each Pydantic model represents a MongoDB collection. The collection name is the
+lowercase of the class name (e.g., User -> "user").
 
-Each Pydantic model represents a collection in your database.
-Model name is converted to lowercase for the collection name:
-- User -> "user" collection
-- Product -> "product" collection
-- BlogPost -> "blogs" collection
+These schemas validate incoming data and help structure the database.
 """
 
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel, Field, EmailStr
+from typing import Optional, List
+from datetime import date
 
-# Example schemas (replace with your own):
 
 class User(BaseModel):
     """
-    Users collection schema
-    Collection name: "user" (lowercase of class name)
+    End users who store products and book services.
+    Collection: "user"
     """
     name: str = Field(..., description="Full name")
-    email: str = Field(..., description="Email address")
-    address: str = Field(..., description="Address")
-    age: Optional[int] = Field(None, ge=0, le=120, description="Age in years")
-    is_active: bool = Field(True, description="Whether user is active")
+    email: EmailStr = Field(..., description="Email address")
+    phone: Optional[str] = Field(None, description="Phone number")
+    city: Optional[str] = Field(None, description="City for geo features")
+    is_active: bool = Field(True, description="Active status")
+
 
 class Product(BaseModel):
     """
-    Products collection schema
-    Collection name: "product" (lowercase of class name)
+    A consumer-owned product stored in their digital vault.
+    Collection: "product"
     """
-    title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    price: float = Field(..., ge=0, description="Price in dollars")
-    category: str = Field(..., description="Product category")
-    in_stock: bool = Field(True, description="Whether product is in stock")
+    user_id: str = Field(..., description="Owner user _id as string")
+    brand: str = Field(..., description="Brand, e.g., Samsung")
+    model: str = Field(..., description="Model name/number")
+    serial_number: str = Field(..., description="Unique serial number")
+    category: Optional[str] = Field(None, description="Category, e.g., TV, Washer")
+    purchase_date: Optional[date] = Field(None, description="Date of purchase")
+    warranty_months: Optional[int] = Field(12, ge=0, le=120, description="Warranty duration in months")
+    invoice_url: Optional[str] = Field(None, description="Link to stored invoice (if uploaded elsewhere)")
 
-# Add your own schemas here:
-# --------------------------------------------------
 
-# Note: The Flames database viewer will automatically:
-# 1. Read these schemas from GET /schema endpoint
-# 2. Use them for document validation when creating/editing
-# 3. Handle all database operations (CRUD) directly
-# 4. You don't need to create any database endpoints!
+class ServiceCenter(BaseModel):
+    """
+    Authorized service centers registered by OEMs/partners.
+    Collection: "servicecenter"
+    """
+    name: str = Field(..., description="Center name")
+    brands: List[str] = Field(..., description="Brands supported")
+    address: str = Field(..., description="Street address")
+    city: str = Field(..., description="City")
+    phone: Optional[str] = Field(None, description="Contact number")
+    rating: Optional[float] = Field(4.5, ge=0, le=5, description="Average rating")
+
+
+class ServiceRequest(BaseModel):
+    """
+    A service request created by a user for a product.
+    Collection: "servicerequest"
+    """
+    user_id: str = Field(..., description="User _id as string")
+    product_id: str = Field(..., description="Product _id as string")
+    issue_description: str = Field(..., description="Problem description")
+    preferred_date: Optional[date] = Field(None, description="Preferred appointment date")
+    city: Optional[str] = Field(None, description="City for assignment")
+    media_urls: Optional[List[str]] = Field(None, description="Optional evidence: photo/video links")
+    status: str = Field("pending", description="pending, assigned, in_progress, completed, cancelled")
+    assigned_center_id: Optional[str] = Field(None, description="ServiceCenter _id if assigned")
+
+
+# Optional: Explicit Warranty records (computed for MVP via Product fields)
+class Warranty(BaseModel):
+    """
+    Warranty info linked to a product. Kept for extensibility.
+    Collection: "warranty"
+    """
+    product_id: str = Field(..., description="Product _id as string")
+    start_date: date = Field(...)
+    end_date: date = Field(...)
+    extended: bool = Field(False)
